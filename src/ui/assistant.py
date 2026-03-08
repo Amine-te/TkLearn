@@ -47,12 +47,27 @@ class AIAssistantWindow(tk.Toplevel):
         
         self.on_insert_code = on_insert_code
         self.generated_code = ""
-        
-        try:
-            self.client = groq.Groq(api_key=GROQ_API_KEY)
-        except Exception as e:
+
+        # Initialize Groq client with clear error when no API key is configured
+        if not GROQ_API_KEY:
             self.client = None
-            messagebox.showerror("Key Error", f"Impossible d'initialiser Groq: {e}", parent=self)
+            messagebox.showerror(
+                "Clé API manquante",
+                "Aucune clé Groq n'a été trouvée.\n\n"
+                "Veuillez définir la variable d'environnement 'GROQ_API_KEY' "
+                "avec votre clé API Groq, puis relancer l'application.",
+                parent=self,
+            )
+        else:
+            try:
+                self.client = groq.Groq(api_key=GROQ_API_KEY)
+            except Exception as e:
+                self.client = None
+                messagebox.showerror(
+                    "Erreur Groq",
+                    f"Impossible d'initialiser le client Groq.\n\nDétail : {e}",
+                    parent=self,
+                )
 
         self._build_ui()
 
