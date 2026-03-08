@@ -1,0 +1,14 @@
+[project]
+name = "tklearn-studio"
+version = "1.0.0"
+description = "Interactive Tkinter learning environment"
+requires-python = ">=3.10"
+dependencies = [
+    "groq",
+]
+
+[tool.pyright]
+include = ["src", "main.py"]
+pythonVersion = "3.10"
+reportMissingImports = true
+reportMissingModuleSource = false
