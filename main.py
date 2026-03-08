@@ -49,6 +49,7 @@ class TkLearnStudio:
         self.root.geometry(WINDOW_GEOMETRY)
         self.root.minsize(MIN_WIDTH, MIN_HEIGHT)
         self.root.configure(bg=BG_PRIMARY)
+        self._set_window_icon()
 
         self._apply_theme()
         self._build_layout()
@@ -57,6 +58,18 @@ class TkLearnStudio:
         # Log welcome message
         self.console.log("Bienvenue dans TkLearn Studio v1.0 !", "info")
         self.console.log("Appuyez sur F5 ou cliquez sur « Lancer » pour exécuter votre code.", "info")
+
+    # ── Window Icon ───────────────────────────
+
+    def _set_window_icon(self):
+        """Set a window icon using an image from the static folder."""
+        try:
+            img = tk.PhotoImage(file="static/image.png")  # Load the image from static folder
+            self.root.iconphoto(True, img)
+            self._icon_ref = img  # keep reference to avoid GC
+        except Exception as e:
+            print(f"Failed to set window icon: {e}")
+            self._icon_ref = None
 
     # ── Theme ─────────────────────────────────
 
@@ -235,6 +248,9 @@ class TkLearnStudio:
                          troughcolor=BG_PRIMARY, bordercolor=BG_PRIMARY,
                          arrowcolor=TEXT_SECONDARY)
 
+        # Status bar
+        style.configure("StatusBar.TLabel", background=BG_PRIMARY, foreground=TEXT_SECONDARY, font=("Segoe UI", 9))
+
     # ── Layout ────────────────────────────────
 
     def _build_layout(self):
@@ -277,11 +293,25 @@ class TkLearnStudio:
         self.console = Console(right_pane, style="Card.TFrame")
         right_pane.add(self.console, weight=1)
 
+        # ── Status bar ─────────────────────────
+        self._status_var = tk.StringVar(value="Ligne 1, Colonne 1")
+        status_bar = ttk.Label(self.root, textvariable=self._status_var, style="StatusBar.TLabel")
+        status_bar.pack(side="bottom", fill="x", padx=6, pady=(0, 4))
+        self.editor.set_cursor_callback(self._on_editor_cursor_change)
+
+    def _on_editor_cursor_change(self, line: int, column: int):
+        self._status_var.set(f"Ligne {line}, Colonne {column}")
+
     # ── Keyboard Shortcuts ────────────────────
 
     def _bind_shortcuts(self):
         self.root.bind(KEY_RUN, lambda e: self._on_run())
         self.root.bind(KEY_SAVE, lambda e: self._on_save())
+        self.root.bind("<Control-plus>", lambda e: self._on_font_zoom(1))
+        self.root.bind("<Control-equal>", lambda e: self._on_font_zoom(1))
+        self.root.bind("<Control-minus>", lambda e: self._on_font_zoom(-1))
+        self.root.bind("<Control-0>", lambda e: self._on_font_zoom(0))
+        self.root.bind("<Control-f>", lambda e: self.editor.show_search())
 
     # ── Callbacks ─────────────────────────────
 
@@ -327,6 +357,10 @@ class TkLearnStudio:
             self.console.log(f"📚 Leçon chargée : {name}", "info")
         except KeyError:
             self.console.log(f"❌ Leçon introuvable : {name}", "error")
+
+    def _on_font_zoom(self, delta: int):
+        """Zoom editor font: +1 increase, -1 decrease, 0 reset."""
+        self.editor.zoom_font(delta)
 
     def _on_assistant(self):
         """Open the AI Assistant window."""

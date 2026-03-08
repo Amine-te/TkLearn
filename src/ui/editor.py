@@ -15,6 +15,9 @@ from ..utils.constants import (
     EDITOR_BG,
     EDITOR_FG,
     EDITOR_FONT,
+    EDITOR_FONT_SIZE,
+    EDITOR_FONT_SIZE_MAX,
+    EDITOR_FONT_SIZE_MIN,
     EDITOR_INSERT_COLOR,
     EDITOR_SELECT_BG,
     FUNC_NAME_COLOR,
@@ -34,6 +37,8 @@ class CodeEditor(ttk.Frame):
 
     def __init__(self, parent: tk.Widget, **kwargs):
         super().__init__(parent, **kwargs)
+        self._cursor_callback = None
+        self._font_size = EDITOR_FONT_SIZE
         self._build_ui()
         self._configure_tags()
         self._bind_events()
@@ -55,7 +60,7 @@ class CodeEditor(ttk.Frame):
             width=4,
             bg=LINE_NUMBER_BG,
             fg=LINE_NUMBER_FG,
-            font=EDITOR_FONT,
+            font=(EDITOR_FONT[0], self._font_size),
             relief="flat",
             state="disabled",
             takefocus=0,
@@ -75,7 +80,7 @@ class CodeEditor(ttk.Frame):
             container,
             bg=EDITOR_BG,
             fg=EDITOR_FG,
-            font=EDITOR_FONT,
+            font=(EDITOR_FONT[0], self._font_size),
             insertbackground=EDITOR_INSERT_COLOR,
             selectbackground=EDITOR_SELECT_BG,
             relief="flat",
@@ -109,15 +114,16 @@ class CodeEditor(ttk.Frame):
     # ── Syntax Tag Configuration ──────────────
 
     def _configure_tags(self):
+        fam, sz = EDITOR_FONT[0], self._font_size
         self.text.tag_configure("number", foreground=NUMBER_COLOR)
-        self.text.tag_configure("class_name", foreground=CLASS_NAME_COLOR, font=(EDITOR_FONT[0], EDITOR_FONT[1], "bold"))
-        self.text.tag_configure("func_name", foreground=FUNC_NAME_COLOR, font=(EDITOR_FONT[0], EDITOR_FONT[1], "bold"))
-        self.text.tag_configure("self_kw", foreground=SELF_COLOR, font=(EDITOR_FONT[0], EDITOR_FONT[1], "italic"))
-        self.text.tag_configure("keyword", foreground=KEYWORD_COLOR, font=(EDITOR_FONT[0], EDITOR_FONT[1], "bold"))
+        self.text.tag_configure("class_name", foreground=CLASS_NAME_COLOR, font=(fam, sz, "bold"))
+        self.text.tag_configure("func_name", foreground=FUNC_NAME_COLOR, font=(fam, sz, "bold"))
+        self.text.tag_configure("self_kw", foreground=SELF_COLOR, font=(fam, sz, "italic"))
+        self.text.tag_configure("keyword", foreground=KEYWORD_COLOR, font=(fam, sz, "bold"))
         self.text.tag_configure("builtin", foreground=BUILTIN_COLOR)
         self.text.tag_configure("decorator", foreground=DECORATOR_COLOR)
         self.text.tag_configure("string", foreground=STRING_COLOR)
-        self.text.tag_configure("comment", foreground=COMMENT_COLOR, font=(EDITOR_FONT[0], EDITOR_FONT[1], "italic"))
+        self.text.tag_configure("comment", foreground=COMMENT_COLOR, font=(fam, sz, "italic"))
         self.text.tag_configure("current_line", background=CURRENT_LINE_BG)
         
         self.text.tag_lower("current_line")
@@ -140,6 +146,23 @@ class CodeEditor(ttk.Frame):
     def _on_cursor_move(self, _event=None):
         self.text.tag_remove("current_line", "1.0", "end")
         self.text.tag_add("current_line", "insert linestart", "insert lineend+1c")
+        if self._cursor_callback:
+            line, col = self._get_cursor_position()
+            self._cursor_callback(line, col)
+
+    def _get_cursor_position(self) -> tuple[int, int]:
+        idx = self.text.index("insert")
+        parts = idx.split(".")
+        line = int(parts[0])
+        col = int(parts[1]) + 1  # 1-based column for display
+        return line, col
+
+    def set_cursor_callback(self, callback):
+        """Set a callback(line, column) called when the cursor moves."""
+        self._cursor_callback = callback
+        if callback:
+            line, col = self._get_cursor_position()
+            callback(line, col)
 
     def _on_modified(self, _event=None):
         if self.text.edit_modified():
@@ -234,3 +257,88 @@ class CodeEditor(ttk.Frame):
         """Clear the editor."""
         self.text.delete("1.0", "end")
         self._update_line_numbers()
+
+    # ── Font zoom ─────────────────────────────
+
+    def zoom_font(self, delta: int):
+        """Change font size: +1 increase, -1 decrease, 0 reset to default."""
+        if delta == 0:
+            new_size = EDITOR_FONT_SIZE
+        else:
+            new_size = self._font_size + delta
+        new_size = max(EDITOR_FONT_SIZE_MIN, min(EDITOR_FONT_SIZE_MAX, new_size))
+        if new_size == self._font_size:
+            return
+        self._font_size = new_size
+        fam = EDITOR_FONT[0]
+        self.text.configure(font=(fam, new_size))
+        self._line_numbers.configure(font=(fam, new_size))
+        self.text.tag_configure("number", font=(fam, new_size))
+        self.text.tag_configure("class_name", font=(fam, new_size, "bold"))
+        self.text.tag_configure("func_name", font=(fam, new_size, "bold"))
+        self.text.tag_configure("self_kw", font=(fam, new_size, "italic"))
+        self.text.tag_configure("keyword", font=(fam, new_size, "bold"))
+        self.text.tag_configure("builtin", font=(fam, new_size))
+        self.text.tag_configure("decorator", font=(fam, new_size))
+        self.text.tag_configure("string", font=(fam, new_size))
+        self.text.tag_configure("comment", font=(fam, new_size, "italic"))
+        self._highlight_syntax()
+
+    # ── Search ─────────────────────────────────
+
+    def show_search(self):
+        """Open the search dialog."""
+        if hasattr(self, "_search_dialog") and self._search_dialog.winfo_exists():
+            self._search_dialog.focus_set()
+            return
+        self._search_dialog = tk.Toplevel(self.winfo_toplevel())
+        self._search_dialog.title("Rechercher")
+        self._search_dialog.transient(self.winfo_toplevel())
+        self._search_dialog.geometry("400x80")
+        self._search_dialog.resizable(False, False)
+        frame = ttk.Frame(self._search_dialog, padding=8)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="Rechercher :").pack(side="left", padx=(0, 4))
+        self._search_entry = ttk.Entry(frame, width=30)
+        self._search_entry.pack(side="left", padx=4, fill="x", expand=True)
+        self._search_entry.focus_set()
+        self._search_entry.bind("<Return>", lambda e: self._find_next())
+        self._search_entry.bind("<Escape>", lambda e: self._search_dialog.destroy())
+        ttk.Button(frame, text="Suivant", command=self._find_next).pack(side="left", padx=2)
+        ttk.Button(frame, text="Précédent", command=self._find_prev).pack(side="left", padx=2)
+        ttk.Button(frame, text="Fermer", command=self._search_dialog.destroy).pack(side="left", padx=2)
+        self.text.tag_configure("search_match", background="#FEF08A")
+        self._search_dialog.protocol("WM_DELETE_WINDOW", self._search_dialog.destroy)
+
+    def _find_next(self):
+        if not hasattr(self, "_search_dialog") or not self._search_dialog.winfo_exists():
+            return
+        self._do_find(forward=True)
+
+    def _find_prev(self):
+        if not hasattr(self, "_search_dialog") or not self._search_dialog.winfo_exists():
+            return
+        self._do_find(forward=False)
+
+    def _do_find(self, forward: bool):
+        query = self._search_entry.get()
+        if not query:
+            return
+        self.text.tag_remove("search_match", "1.0", "end")
+        self.text.tag_remove("sel", "1.0", "end")
+        if forward:
+            pos = self.text.search(query, "insert+1c", "end", nocase=True)
+            if not pos:
+                pos = self.text.search(query, "1.0", "end", nocase=True)
+        else:
+            pos = self.text.search(query, "insert", "1.0", nocase=True, backwards=True)
+            if not pos:
+                pos = self.text.search(query, "end-1c", "1.0", nocase=True, backwards=True)
+        if pos:
+            end = f"{pos}+{len(query)}c"
+            self.text.tag_add("search_match", pos, end)
+            self.text.tag_add("sel", pos, end)
+            self.text.see(pos)
+            self.text.mark_set("insert", end if forward else pos)
+        else:
+            self.text.bell()

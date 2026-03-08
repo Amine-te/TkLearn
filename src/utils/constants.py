@@ -13,6 +13,8 @@ MIN_HEIGHT = 500
 # ── Fonts ─────────────────────────────────────
 EDITOR_FONT_FAMILY = "Consolas"
 EDITOR_FONT_SIZE = 11
+EDITOR_FONT_SIZE_MIN = 8
+EDITOR_FONT_SIZE_MAX = 24
 EDITOR_FONT = (EDITOR_FONT_FAMILY, EDITOR_FONT_SIZE)
 LABEL_FONT = ("Segoe UI", 10, "bold")
 UI_FONT = ("Segoe UI", 9)

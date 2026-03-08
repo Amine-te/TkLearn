@@ -53,6 +53,21 @@ pip install groq
 
 ---
 
+## ⌨️ Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `F5` | Run code / preview |
+| `Ctrl+S` | Save to file |
+| `Ctrl+F` | Search in editor |
+| `Ctrl++` / `Ctrl+=` | Increase editor font size |
+| `Ctrl+-` | Decrease editor font size |
+| `Ctrl+0` | Reset editor font size |
+
+The status bar at the bottom shows the current line and column.
+
+---
+
 ## 🤖 AI Assistant & Groq API Key
 
 The AI assistant relies on the Groq API. For security, the API key is **not** stored in the code; it is read from the `GROQ_API_KEY` environment variable.
@@ -68,7 +83,7 @@ The AI assistant relies on the Groq API. For security, the API key is **not** st
 
 ### 2. Configure `GROQ_API_KEY` on Windows (PowerShell)
 
-You can set the key **only for the current terminal**:
+You can set the key **only for the current terminal** (recommended):
 
 ```powershell
 $env:GROQ_API_KEY = "your-groq-api-key-here"
